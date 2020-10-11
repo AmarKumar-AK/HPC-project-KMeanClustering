@@ -2,13 +2,22 @@
 #include<omp.h>
 #include<GL/glut.h>
 using namespace std;
+// width and height of the screen which plots the data points
 const int width = 1200, height = 600;
+// total number of data points
 const int num_data_points = 1000;
-const int num_pizza_center=8;
+// number of pizza centers required to open
+// maximum number of pizza center should be 10 as i have added only 10 colours and 10 locations of pizza center
+const int num_pizza_center=5;
+// number of iteration for finding the best possible location for pizza center in order to deliver a location fastest
 const int num_iteration=15;
+// x and y coordinates of the data points
 int x[num_data_points],y[num_data_points];
+// initial mean of the data points(generated using random.randInt in gen_dataset.py file)
 int kx[num_pizza_center],ky[num_pizza_center];
+// data points belonging to the k pizza centers
 vector<pair<float,float>> points[num_pizza_center];
+// colours used for plotting points
 const float colour[10][3] = {{1.0,0.0,0.0}, // red
 							{0.0,1.0,0.0}, // green
 							{0.0,0.0,1.0}, //blue
@@ -16,21 +25,23 @@ const float colour[10][3] = {{1.0,0.0,0.0}, // red
 							{1.0,0.0,1.0}, // magenta
 							{0.0,1.0,1.0}, // cyan
 							{1.0,0.5,0.0}, // orange
-							{0.49,0.4,1.0}, // violet
 							{0.7,0.7,0.7}, // gray
+							{0.15,0.86,0.48}, // some variant of green
 							{0.0,0.0,0.0}}; // black
-// vector<float>distances[num_pizza_center];
 
-void init() {
+// this function initializes the background colour, pointer size , pointer color etc.
+void init(){
 	glClearColor(1.0, 1.0, 1.0, 0.0);
-	glColor3f(1.0, 0.0, 0.0);
+	glColor3f(0.0, 0.0, 0.0);
 	glPointSize(1.0);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(0, width, 0, height);
 }
+
+// given the coordinates of a point, its colour index and point size
+// this function draw that point
 void drawPoint(int x, int y,int col_position,float point_size) {
-    // glColor3f(get<0>(color),get<1>(color),get<2>(color));
 	glColor3f(colour[col_position][0],colour[col_position][1],colour[col_position][2]);
     glPointSize(point_size);
 	glBegin(GL_POINTS);
@@ -38,56 +49,40 @@ void drawPoint(int x, int y,int col_position,float point_size) {
 	glEnd();
 	glFlush();
 }
+
+// this function displays initial data points
 void displayInitialDataPoint(){
-    // tuple<float,float,float>col;
-    // col = make_tuple(colour[6]);
 	int col_index = 9;
+	#pragma omp parallel for shared(x,y) schedule(static)
     for(int i=0 ; i<num_data_points ; ++i){
+		// for displaying locations
         drawPoint(x[i],y[i],col_index,4.0);
     }
-    // col = make_tuple(1.0,0.0,0.0);
-	// col_position=0;
+
+	#pragma omp parallel for shared(kx,ky) schedule(static)
     for(int i=0 ; i<num_pizza_center ; ++i){
+		// for displaying pizza center location
         drawPoint(kx[i],ky[i],col_index,10.0);
     }
 }
+// this function is displaying pizza center location and location which comes under a particular pizza center 
 void displayFinalDataPoints(){
 	glClearColor(1.0, 1.0, 1.0, 0.0);
-	// tuple<float,float,float>col;
-    // col = make_tuple(0.0,1.0,0.0);
-	// for(int i=0 ; i<num_data_points ; ++i){
-	// 	drawPoint(x[i],y[i],col,4.0);
-	// }
-	// col = make_tuple(1.0,0.0,0.0);
-	// int col_position = 0;
+	
+	#pragma omp parallel for shared(points,kx,ky) schedule(static)
 	for(int i=0 ; i<num_pizza_center ; ++i){
 		for(auto k:points[i]){
+			// for displaying locations according to the area under it in different colour
 			drawPoint(k.first,k.second,i,4.0);
 		}
+		// for displaying pizza center location
+		drawPoint(kx[i],ky[i],i,10.0);
 	}
-	// for(auto k:points[0]){
-	// 	drawPoint(k.first,k.second,col_position,4.0);
-	// }
-	// // col = make_tuple(0.0,1.0,0.0);
-	// col_position = 1;
-	// for(auto k:points[1]){
-	// 	drawPoint(k.first,k.second,col_position,4.0);
-	// }
-	// // col = make_tuple(0.0,0.0,1.0);
-	// col_position = 2;
-	// for(auto k:points[2]){
-	// 	drawPoint(k.first,k.second,col_position,4.0);
-	// }
-	// glClearColor(1.0, 1.0, 1.0, 0.0);
-	// col = make_tuple(0.0,0.0,1.0);
-	int col_position = 0;
-	for(int i=0 ; i<num_pizza_center ; ++i){
-        drawPoint(kx[i],ky[i],col_position,10.0);
-    }
 }
 
+// this function finds the updated pizza center location
 void findUpdatedMeanPosition(){
-	// cout<<"updated mean position : ";
+	#pragma omp parallel for shared(x,y,points) schedule(static)
 	for(int i=0 ; i<num_pizza_center ; ++i){
 		float x_avg=0,y_avg=0;
 		for(auto x: points[i]){
@@ -96,68 +91,70 @@ void findUpdatedMeanPosition(){
 		}
 		kx[i] = x_avg/points[i].size();
 		ky[i] = y_avg/points[i].size();
-		// kx[i] = accumulate(points[i].begin()->first,points[i].end()->first,0.0);
-		// kx[i] /= points[i].size(); 
-		// ky[i] = accumulate(points[i].begin()->second,points[i].end()->second,0.0);
-		// ky[i] /= points[i].size();
-		// cout<<"("<<kx[i]<<","<<ky[i]<<")  ";
 	}
 	cout<<endl;
 }
+
+// this function calculates the euclidean distance of a particular location and a pizza center
 inline float calculateDistance(float x1, float y1, float x2, float y2){
 	return sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
 }
-void updateMean(){
+
+// this function calculates which location should belong to which pizza center so that distance between them is minimum
+void pizzaCenterAreaCovered(){
 	vector<float>dist;
 	cout<<"current mean positions are : ";
+	#pragma omp parallel for shared(kx,ky) schedule(static)
 	for(int i=0 ; i<num_pizza_center ; ++i){
 		cout<<"("<<kx[i]<<","<<ky[i]<<")  ";	
 	}
 	cout<<endl;
-	// cout<<"current mean position are ("<<kx[0]<<","<<ky[0]<<")  ("<<kx[1]<<","<<ky[1]<<")  (" <<kx[2]<<","<<ky[2]<<")"<<endl;
-	// for(int k=0 ; k<num_iteration ; ++k){
-		for(int i=0 ; i<num_data_points ; ++i){
-			for(int j=0 ; j<num_pizza_center ; ++j){
-				float dis = calculateDistance(kx[j],ky[j],x[i],y[i]);
-				dist.push_back(dis);
-			}
-			// float min_dist = *min_element(dist.begin(),dist.end());
-			int index = distance(dist.begin(),min_element(dist.begin(),dist.end()));
-			points[index].push_back({x[i],y[i]});
-			// distances[index].push_back(min_dist);
-			dist.clear();
+
+	#pragma omp parallel for shared(x,y,kx,ky) schedule(static)
+	for(int i=0 ; i<num_data_points ; ++i){
+		for(int j=0 ; j<num_pizza_center ; ++j){
+			// calculating distance of each location from pizza centers
+			float dis = calculateDistance(kx[j],ky[j],x[i],y[i]);
+			dist.push_back(dis);
 		}
-		// findUpdatedMeanPosition();
-		// for(int j=0 ; j<num_pizza_center ; ++i){
-		// 	points[j].clear();
-		// }
-	// }
+		// finding the index of pizza center which has least distance from a particular location
+		int index = distance(dist.begin(),min_element(dist.begin(),dist.end()));
+		// inserting the coordinates of location which has least distance from a particular pizza center
+		points[index].push_back({x[i],y[i]});
+		// clearing distance because when pizza center location is updated according to the algorithm then its distance from each points may also change
+		dist.clear();
+	}
 }
+
+// this function is used to display purpose
 void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
     displayInitialDataPoint();
+	#pragma omp parallel for shared(points) schedule(static)
 	for(int i=0 ; i<num_iteration ; ++i){
-		updateMean();
+		pizzaCenterAreaCovered();
 		findUpdatedMeanPosition();
+		// each location may be assigned to a particular pizza center, so it should be cleared
+		// not clearing last points because we need to plot the location and final pizza center after applying algorithm
 		if(i!=num_iteration-1){
 			for(int j=0 ; j<num_pizza_center ; ++j){
 				points[j].clear();
 			}
 		}
 	}
-	// for(int i=0 ; i<num_pizza_center ; ++i){
-	// 	displayFinalDataPoints();
-	// }
 	displayFinalDataPoints();
 	glEnd();
 	glFlush();
 }
 
 void readData(){
+	// opening datasets(data.txt) in read mode
     freopen("data.txt", "r", stdin);
+	// reading data points from file
     for(int i=0 ; i<num_data_points ; ++i){
         cin>>x[i]>>y[i];
     }
+	// reading pizza center coordinates
     for(int i=0 ; i<num_pizza_center ; ++i){
         cin>>kx[i]>>ky[i];
     }
@@ -167,10 +164,11 @@ void readData(){
 int main(int argc, char** argv){
 	readData();
     
+	// initializing glut(graphics library), window size, window position, title of windows etc.
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_SINGLE|GLUT_RGB);
 	glutInitWindowSize(width, height);
-	glutInitWindowPosition(200, 200);
+	glutInitWindowPosition(100, 100);
 	glutCreateWindow("1st question");
 	init();
 	glutDisplayFunc(display);
