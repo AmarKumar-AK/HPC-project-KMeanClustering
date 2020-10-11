@@ -3,15 +3,23 @@
 #include<GL/glut.h>
 using namespace std;
 const int width = 1200, height = 600;
-const int num_data_points = 300;
-const int num_k=3;
+const int num_data_points = 1000;
+const int num_pizza_center=8;
+const int num_iteration=15;
 int x[num_data_points],y[num_data_points];
-int kx[num_k],ky[num_k];
-const int num_iteration=4;
-
-// vector<tuple<pair<float,float>,pair<float,float>,pair<float,float>>>points;
-vector<pair<float,float>> points[num_k];
-// vector<float>distances[num_k];
+int kx[num_pizza_center],ky[num_pizza_center];
+vector<pair<float,float>> points[num_pizza_center];
+const float colour[10][3] = {{1.0,0.0,0.0}, // red
+							{0.0,1.0,0.0}, // green
+							{0.0,0.0,1.0}, //blue
+							{1.0,1.0,0.0}, // yellow
+							{1.0,0.0,1.0}, // magenta
+							{0.0,1.0,1.0}, // cyan
+							{1.0,0.5,0.0}, // orange
+							{0.49,0.4,1.0}, // violet
+							{0.7,0.7,0.7}, // gray
+							{0.0,0.0,0.0}}; // black
+// vector<float>distances[num_pizza_center];
 
 void init() {
 	glClearColor(1.0, 1.0, 1.0, 0.0);
@@ -21,8 +29,9 @@ void init() {
 	glLoadIdentity();
 	gluOrtho2D(0, width, 0, height);
 }
-void drawPoint(int x, int y,tuple<float,float,float>color,float point_size) {
-    glColor3f(get<0>(color),get<1>(color),get<2>(color));
+void drawPoint(int x, int y,int col_position,float point_size) {
+    // glColor3f(get<0>(color),get<1>(color),get<2>(color));
+	glColor3f(colour[col_position][0],colour[col_position][1],colour[col_position][2]);
     glPointSize(point_size);
 	glBegin(GL_POINTS);
 		glVertex3i(x, y, 0);
@@ -30,45 +39,56 @@ void drawPoint(int x, int y,tuple<float,float,float>color,float point_size) {
 	glFlush();
 }
 void displayInitialDataPoint(){
-    tuple<float,float,float>col;
-    col = make_tuple(0.0,0.0,0.0);
+    // tuple<float,float,float>col;
+    // col = make_tuple(colour[6]);
+	int col_index = 9;
     for(int i=0 ; i<num_data_points ; ++i){
-        drawPoint(x[i],y[i],col,4.0);
+        drawPoint(x[i],y[i],col_index,4.0);
     }
-    col = make_tuple(1.0,0.0,0.0);
-    for(int i=0 ; i<num_k ; ++i){
-        drawPoint(kx[i],ky[i],col,10.0);
+    // col = make_tuple(1.0,0.0,0.0);
+	// col_position=0;
+    for(int i=0 ; i<num_pizza_center ; ++i){
+        drawPoint(kx[i],ky[i],col_index,10.0);
     }
 }
 void displayFinalDataPoints(){
 	glClearColor(1.0, 1.0, 1.0, 0.0);
-	tuple<float,float,float>col;
+	// tuple<float,float,float>col;
     // col = make_tuple(0.0,1.0,0.0);
 	// for(int i=0 ; i<num_data_points ; ++i){
 	// 	drawPoint(x[i],y[i],col,4.0);
 	// }
-	col = make_tuple(1.0,0.0,0.0);
-	for(auto k:points[0]){
-		drawPoint(k.first,k.second,col,4.0);
+	// col = make_tuple(1.0,0.0,0.0);
+	// int col_position = 0;
+	for(int i=0 ; i<num_pizza_center ; ++i){
+		for(auto k:points[i]){
+			drawPoint(k.first,k.second,i,4.0);
+		}
 	}
-	col = make_tuple(0.0,1.0,0.0);
-	for(auto k:points[1]){
-		drawPoint(k.first,k.second,col,4.0);
-	}
-	col = make_tuple(0.0,0.0,1.0);
-	for(auto k:points[2]){
-		drawPoint(k.first,k.second,col,4.0);
-	}
-	glClearColor(1.0, 1.0, 1.0, 0.0);
-	col = make_tuple(0.0,0.0,1.0);
-	for(int i=0 ; i<num_k ; ++i){
-        drawPoint(kx[i],ky[i],col,10.0);
+	// for(auto k:points[0]){
+	// 	drawPoint(k.first,k.second,col_position,4.0);
+	// }
+	// // col = make_tuple(0.0,1.0,0.0);
+	// col_position = 1;
+	// for(auto k:points[1]){
+	// 	drawPoint(k.first,k.second,col_position,4.0);
+	// }
+	// // col = make_tuple(0.0,0.0,1.0);
+	// col_position = 2;
+	// for(auto k:points[2]){
+	// 	drawPoint(k.first,k.second,col_position,4.0);
+	// }
+	// glClearColor(1.0, 1.0, 1.0, 0.0);
+	// col = make_tuple(0.0,0.0,1.0);
+	int col_position = 0;
+	for(int i=0 ; i<num_pizza_center ; ++i){
+        drawPoint(kx[i],ky[i],col_position,10.0);
     }
 }
 
 void findUpdatedMeanPosition(){
 	// cout<<"updated mean position : ";
-	for(int i=0 ; i<num_k ; ++i){
+	for(int i=0 ; i<num_pizza_center ; ++i){
 		float x_avg=0,y_avg=0;
 		for(auto x: points[i]){
 			x_avg +=x.first;
@@ -90,14 +110,14 @@ inline float calculateDistance(float x1, float y1, float x2, float y2){
 void updateMean(){
 	vector<float>dist;
 	cout<<"current mean positions are : ";
-	for(int i=0 ; i<num_k ; ++i){
+	for(int i=0 ; i<num_pizza_center ; ++i){
 		cout<<"("<<kx[i]<<","<<ky[i]<<")  ";	
 	}
 	cout<<endl;
 	// cout<<"current mean position are ("<<kx[0]<<","<<ky[0]<<")  ("<<kx[1]<<","<<ky[1]<<")  (" <<kx[2]<<","<<ky[2]<<")"<<endl;
 	// for(int k=0 ; k<num_iteration ; ++k){
 		for(int i=0 ; i<num_data_points ; ++i){
-			for(int j=0 ; j<num_k ; ++j){
+			for(int j=0 ; j<num_pizza_center ; ++j){
 				float dis = calculateDistance(kx[j],ky[j],x[i],y[i]);
 				dist.push_back(dis);
 			}
@@ -108,7 +128,7 @@ void updateMean(){
 			dist.clear();
 		}
 		// findUpdatedMeanPosition();
-		// for(int j=0 ; j<num_k ; ++i){
+		// for(int j=0 ; j<num_pizza_center ; ++i){
 		// 	points[j].clear();
 		// }
 	// }
@@ -120,12 +140,12 @@ void display(void) {
 		updateMean();
 		findUpdatedMeanPosition();
 		if(i!=num_iteration-1){
-			for(int j=0 ; j<num_k ; ++j){
+			for(int j=0 ; j<num_pizza_center ; ++j){
 				points[j].clear();
 			}
 		}
 	}
-	// for(int i=0 ; i<num_k ; ++i){
+	// for(int i=0 ; i<num_pizza_center ; ++i){
 	// 	displayFinalDataPoints();
 	// }
 	displayFinalDataPoints();
@@ -138,7 +158,7 @@ void readData(){
     for(int i=0 ; i<num_data_points ; ++i){
         cin>>x[i]>>y[i];
     }
-    for(int i=0 ; i<num_k ; ++i){
+    for(int i=0 ; i<num_pizza_center ; ++i){
         cin>>kx[i]>>ky[i];
     }
 }
