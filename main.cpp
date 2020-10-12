@@ -1,3 +1,4 @@
+
 #include<bits/stdc++.h>
 #include<omp.h>
 #include<GL/glut.h>
@@ -8,7 +9,7 @@ const int width = 1200, height = 600;
 const int num_data_points = 1000;
 // number of pizza centers required to open
 // maximum number of pizza center should be 10 as i have added only 10 colours and 10 locations of pizza center
-const int num_pizza_center=5;
+const int num_pizza_center=8;
 // number of iteration for finding the best possible location for pizza center in order to deliver a location fastest
 const int num_iteration=15;
 // x and y coordinates of the data points
@@ -17,6 +18,8 @@ int x[num_data_points],y[num_data_points];
 int kx[num_pizza_center],ky[num_pizza_center];
 // data points belonging to the k pizza centers
 vector<pair<float,float>> points[num_pizza_center];
+// for storing distance of a location from every pizza center
+vector<float>dist;
 // colours used for plotting points
 const float colour[10][3] = {{1.0,0.0,0.0}, // red
 							{0.0,1.0,0.0}, // green
@@ -59,7 +62,6 @@ void displayInitialDataPoint(){
         drawPoint(x[i],y[i],col_index,4.0);
     }
 
-	#pragma omp parallel for shared(kx,ky) schedule(static)
     for(int i=0 ; i<num_pizza_center ; ++i){
 		// for displaying pizza center location
         drawPoint(kx[i],ky[i],col_index,10.0);
@@ -68,8 +70,6 @@ void displayInitialDataPoint(){
 // this function is displaying pizza center location and location which comes under a particular pizza center 
 void displayFinalDataPoints(){
 	glClearColor(1.0, 1.0, 1.0, 0.0);
-	
-	#pragma omp parallel for shared(points,kx,ky) schedule(static)
 	for(int i=0 ; i<num_pizza_center ; ++i){
 		for(auto k:points[i]){
 			// for displaying locations according to the area under it in different colour
@@ -82,9 +82,10 @@ void displayFinalDataPoints(){
 
 // this function finds the updated pizza center location
 void findUpdatedMeanPosition(){
-	#pragma omp parallel for shared(x,y,points) schedule(static)
+	float x_avg,y_avg;
+	#pragma omp parallel for reduction(+:x_avg,y_avg)
 	for(int i=0 ; i<num_pizza_center ; ++i){
-		float x_avg=0,y_avg=0;
+		x_avg=0,y_avg=0;
 		for(auto x: points[i]){
 			x_avg +=x.first;
 			y_avg +=x.second;
@@ -96,26 +97,24 @@ void findUpdatedMeanPosition(){
 }
 
 // this function calculates the euclidean distance of a particular location and a pizza center
-inline float calculateDistance(float x1, float y1, float x2, float y2){
+float calculateDistance(float x1, float y1, float x2, float y2){
 	return sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
 }
-
-// this function calculates which location should belong to which pizza center so that distance between them is minimum
-void pizzaCenterAreaCovered(){
-	vector<float>dist;
+void printMean(){
 	cout<<"current mean positions are : ";
-	#pragma omp parallel for shared(kx,ky) schedule(static)
 	for(int i=0 ; i<num_pizza_center ; ++i){
 		cout<<"("<<kx[i]<<","<<ky[i]<<")  ";	
 	}
 	cout<<endl;
-
-	#pragma omp parallel for shared(x,y,kx,ky) schedule(static)
+}
+// this function calculates which location should belong to which pizza center so that distance between them is minimum
+void pizzaCenterAreaCovered(){
+	printMean();
 	for(int i=0 ; i<num_data_points ; ++i){
+		float temp1 = x[i], temp2 = y[i]; 
 		for(int j=0 ; j<num_pizza_center ; ++j){
 			// calculating distance of each location from pizza centers
-			float dis = calculateDistance(kx[j],ky[j],x[i],y[i]);
-			dist.push_back(dis);
+			dist.push_back(calculateDistance(kx[j],ky[j],temp1,temp2));
 		}
 		// finding the index of pizza center which has least distance from a particular location
 		int index = distance(dist.begin(),min_element(dist.begin(),dist.end()));
@@ -130,13 +129,13 @@ void pizzaCenterAreaCovered(){
 void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
     displayInitialDataPoint();
-	#pragma omp parallel for shared(points) schedule(static)
 	for(int i=0 ; i<num_iteration ; ++i){
 		pizzaCenterAreaCovered();
 		findUpdatedMeanPosition();
 		// each location may be assigned to a particular pizza center, so it should be cleared
 		// not clearing last points because we need to plot the location and final pizza center after applying algorithm
 		if(i!=num_iteration-1){
+			#pragma omp parallel for shared(points) schedule(static)
 			for(int j=0 ; j<num_pizza_center ; ++j){
 				points[j].clear();
 			}
@@ -169,7 +168,7 @@ int main(int argc, char** argv){
 	glutInitDisplayMode(GLUT_SINGLE|GLUT_RGB);
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(100, 100);
-	glutCreateWindow("1st question");
+	glutCreateWindow("K-Mean clustering implementation(openMP)");
 	init();
 	glutDisplayFunc(display);
 	glutMainLoop();
