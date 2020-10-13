@@ -9,9 +9,9 @@ const int width = 1200, height = 600;
 const int num_data_points = 1000;
 // number of pizza centers required to open
 // maximum number of pizza center should be 10 as i have added only 10 colours and 10 locations of pizza center
-const int num_pizza_center=8;
+const int num_pizza_center=10;
 // number of iteration for finding the best possible location for pizza center in order to deliver a location fastest
-const int num_iteration=15;
+const int num_iteration=1000;
 // x and y coordinates of the data points
 int x[num_data_points],y[num_data_points];
 // initial mean of the data points(generated using random.randInt in gen_dataset.py file)
@@ -93,7 +93,7 @@ void findUpdatedMeanPosition(){
 		kx[i] = x_avg/points[i].size();
 		ky[i] = y_avg/points[i].size();
 	}
-	cout<<endl;
+	// cout<<endl;
 }
 
 // this function calculates the euclidean distance of a particular location and a pizza center
@@ -109,7 +109,7 @@ void printMean(){
 }
 // this function calculates which location should belong to which pizza center so that distance between them is minimum
 void pizzaCenterAreaCovered(){
-	printMean();
+	// printMean();
 	for(int i=0 ; i<num_data_points ; ++i){
 		float temp1 = x[i], temp2 = y[i]; 
 		for(int j=0 ; j<num_pizza_center ; ++j){
@@ -129,6 +129,7 @@ void pizzaCenterAreaCovered(){
 void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT);
     displayInitialDataPoint();
+	double start = omp_get_wtime();
 	for(int i=0 ; i<num_iteration ; ++i){
 		pizzaCenterAreaCovered();
 		findUpdatedMeanPosition();
@@ -141,6 +142,9 @@ void display(void) {
 			}
 		}
 	}
+	double end = omp_get_wtime();
+	cout<<"execution time : "<<end-start<<"sec"<<endl;
+
 	displayFinalDataPoints();
 	glEnd();
 	glFlush();
